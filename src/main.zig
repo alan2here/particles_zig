@@ -101,7 +101,7 @@ pub fn main() !void {
     const verts = [1][6]f32{[_]f32{ -0.5, -0.5, 0.0, 0.0, 0.5, 0.5 }};
     try circles.upload(verts);
 
-    gl.pointSize(100);
+    gl.pointSize(window.resolution[1] / 20); // Proportional to window height
 
     // main loop
     while (window.ok()) {
@@ -127,7 +127,7 @@ pub fn main() !void {
 
         // move this up to "rendering – the net"
         shader.use();
-        circles.draw(gl.POINT);
+        circles.draw(gl.POINTS);
 
         // move this up to "swap buffers"
         window.swap();
