@@ -71,7 +71,7 @@ pub const Disp: type = struct {
     // active: bool = True
 };
 
-pub fn draw_circle(pos: Vec2) void {
+pub fn draw_circles(pos: Vec2) void {
     _ = pos;
 }
 
@@ -87,14 +87,12 @@ pub fn main() !void {
     var window = try Window.init(alloc, &camera);
     defer window.kill();
 
-    var circle_shader = try Shader.init("simple", null, "circle");
-    defer circle_shader.kill();
-    var line_shader = try Shader.init("simple", null, "line");
-    defer line_shader.kill();
+    var point_line_shader = try Shader.init("simple", null, "circle");
+    defer point_line_shader.kill();
 
     var mesh = try Mesh(.{.{
         .{ .name = "position", .size = 2, .type = gl.FLOAT },
-    }}).init(circle_shader);
+    }}).init(point_line_shader);
     defer mesh.kill();
     const circle_verts = [_]f32{
         -0.5, 0.5,
@@ -129,18 +127,19 @@ pub fn main() !void {
         // rendering – the net
 
         // rendering
-        //   FPS text
-        //   swap buffers
-        window.clearColour(0, 0, 0, 1);
-        //   wait
+        // todo: render FPS text
+        window.swap(); // swap buffers
+        window.clearColour(0, 0, 0, 1); // clear the inactive buffer
+        // todo: wait for the frame cap delay
 
         // move this up to "rendering – the net"
-        circle_shader.use();
+        point_line_shader.use();
         mesh.draw(gl.POINTS, true);
-        line_shader.use();
         mesh.draw(gl.LINES, false);
 
-        // move this up to "swap buffers"
-        window.swap();
+        // todo: this stuff doesn't seem to be needed, can I just remove it?
+        // var line_shader = try Shader.init("simple", null, "line");
+        // defer line_shader.kill();
+        // line_shader.use();
     }
 }
