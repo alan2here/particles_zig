@@ -1,12 +1,14 @@
 #version 460 core
 
+uniform vec4 circle_colour;
+
 out vec4 colour;
 
 void main()
 {
-    // Anti-aliased white circle with black background
-    float dist = length(gl_PointCoord * 2 - 1);
-    float delta = fwidth(dist);
-    float alpha = smoothstep(1 - delta, 1, dist);
-    colour = vec4(mix(1, 0, alpha));
+    // Anti-aliased circle with transparent background
+    const float dist = length(gl_PointCoord * 2 - 1);
+    const float delta = fwidth(dist);
+    const float alpha = smoothstep(1, 1 - delta, dist);
+    colour = circle_colour * vec4(1, 1, 1, alpha);
 }

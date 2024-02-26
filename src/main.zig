@@ -1,11 +1,5 @@
 const std = @import("std");
-const gl = @import("gl");
-
-// Tom lib
-const Window = @import("window.zig").Window;
-const Shader = @import("shader.zig").Shader;
-const Camera = @import("camera.zig").Camera;
-const Mesh = @import("mesh.zig").Mesh;
+const GFX = @import("gfx.zig").GFX;
 
 const Vec2 = @Vector(2, f32);
 
@@ -32,11 +26,11 @@ pub const Link = struct {
 pub const Net = struct {
     // the net contains particles and links between them
     // in this example they are arranged in a grid
-    width: u16 = 20,
-    height: u16 = 20,
-    cellSize: u16 = 20,
-    offsetX: u16 = 40,
-    offsetY: u16 = 50
+    // width: u16 = 20,
+    // height: u16 = 20,
+    // cellSize: u16 = 20,
+    // offsetX: u16 = 40,
+    // offsetY: u16 = 50
 };
 
 // setup – the net
@@ -71,43 +65,40 @@ pub const Disp: type = struct {
     // active: bool = True
 };
 
-// pub fn net_modify(window: Window, mesh: struct, circle_verts: [_]f32) void {
-//     try mesh.upload(.{&circle_verts});
-//     const line_indices = [_]gl.GLuint{ 1, 2, 2, 3, 3, 4, 4, 5 };
-//     try mesh.uploadIndices(&line_indices);
-//     gl.pointSize(window.resolution[1] / 20); // Proportional to window height
-//     gl.lineWidth(window.resolution[1] / 20); // Same, but thick lines dont work
-// }
+pub fn draw_circle(pos: Vec2) void {
+    _ = pos;
+}
 
 // ---
 
 pub fn main() !void {
-    // setup – display
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
-    defer if (gpa.deinit() == .leak) unreachable;
-    const alloc = gpa.allocator();
-    var camera = Camera.init();
-    var window = try Window.init(alloc, &camera);
-    defer window.kill();
-    var point_line_shader = try Shader.init("simple", null, "circle");
-    defer point_line_shader.kill();
-    var mesh = try Mesh(.{.{
-        .{ .name = "position", .size = 2, .type = gl.FLOAT },
-    }}).init(point_line_shader);
-    defer mesh.kill();
+    var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
 
-    // net_modify(window, mesh, [_]f32{
-    //     -0.5, 0.5,
-    //     -0.3, -0.1,
-    //     -0.2, -0.4,
-    //     0.0,  -0.5,
-    //     0.2,  -0.4,
-    //     0.3,  -0.1,
-    //     0.5,  0.5,
-    // });
+    var gfx = try GFX.init(alloc);
+    defer gfx.kill();
+
+    const line_indices = [_]c_uint{
+        1, 2,
+        2, 3,
+        3, 4,
+        4, 5,
+    };
+    try gfx.mesh.uploadIndices(&line_indices);
+    const circle_verts = [_]f32{
+        -0.5, 0.5,
+        -0.3, -0.1,
+        -0.2, -0.4,
+        0.0,  -0.5,
+        0.2,  -0.4,
+        0.3,  -0.1,
+        0.5,  0.5,
+    };
+    try gfx.mesh.upload(.{&circle_verts});
 
     // main loop
-    while (window.ok()) {
+    while (try gfx.window.ok()) {
         // physics – links between particles
         // reads pos, affects vel
         // for link in links:
@@ -120,22 +111,6 @@ pub fn main() !void {
 
         // physics – pin the top of the net
 
-        // rendering – the net
-
-        // rendering
-        // todo: render FPS text
-        window.swap(); // swap buffers
-        window.clearColour(0, 0, 0, 1); // clear the inactive buffer
-        // todo: wait for the frame cap delay
-
-        // move this up to "rendering – the net"
-        point_line_shader.use();
-        mesh.draw(gl.POINTS, true);
-        mesh.draw(gl.LINES, false);
-
-        // todo: this stuff doesn't seem to be needed, can I just remove it?
-        // var line_shader = try Shader.init("simple", null, "line");
-        // defer line_shader.kill();
-        // line_shader.use();
+        gfx.draw();
     }
 }

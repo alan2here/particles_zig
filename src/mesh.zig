@@ -67,10 +67,11 @@ pub fn Mesh(comptime attrs: anytype) type {
             }
         }
 
-        pub fn draw(mesh: @This(), mode: gl.GLenum, force_no_indices: bool) void {
+        pub fn draw(mesh: @This(), mode: gl.GLenum, indices: ?bool) void {
             gl.bindVertexArray(mesh.vao.?);
             defer gl.bindVertexArray(0);
-            if (mesh.ebo == null or force_no_indices) {
+            if (mesh.ebo == null or indices == false) {
+                if (indices == true) unreachable;
                 if (mesh.vert_count orelse 0 == 0) return;
                 gl.drawArrays(
                     mode,

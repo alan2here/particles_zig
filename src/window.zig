@@ -44,9 +44,9 @@ pub const Window = struct {
         const raw_input = false;
         const cull_faces = false;
         const test_depth = false;
-        const wireframe = false;
+        const wireframe = false; // This won't change anything
         const vertical_sync = true;
-        const msaa_samples = 1;
+        const msaa_samples = 16;
         const clear_buffers = true;
 
         // If we currently have no windows then initialise GLFW
@@ -68,7 +68,7 @@ pub const Window = struct {
         const window = glfw.Window.create(
             @intFromFloat(resolution[0]),
             @intFromFloat(resolution[1]),
-            "zig-mesh",
+            "particles_zig",
             if (windowed) null else monitor,
             null,
             .{
@@ -165,7 +165,7 @@ pub const Window = struct {
         if (windows == 0) glfw.terminate();
     }
 
-    pub fn ok(win: *Window) bool {
+    pub fn ok(win: *Window) !bool {
         // Clear mouse delta
         win.mouse_delta = @splat(0);
         win.scroll_delta = @splat(0);
@@ -175,6 +175,14 @@ pub const Window = struct {
         if (win.time) |time| {
             // Limit delta to 100 ms to avoid massive jumps
             win.delta = @min(new_time - time, 0.1);
+            if (@floor(time) != @floor(new_time)) {
+                const fps: usize = @intFromFloat(@min(1 / win.delta, 999999));
+                var b: [10:0]u8 = undefined;
+                const slice = try std.fmt.bufPrint(&b, "{} FPS", .{fps});
+                std.debug.print("{s}\n", .{slice});
+                b[slice.len] = 0;
+                win.window.setTitle(&b);
+            }
         } else {
             // Set the user pointer if we are about to poll the first events
             win.window.setUserPointer(win);
