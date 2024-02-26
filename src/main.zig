@@ -32,11 +32,11 @@ pub const Link = struct {
 pub const Net = struct {
     // the net contains particles and links between them
     // in this example they are arranged in a grid
-    // width: u16 = 20,
-    // height: u16 = 20,
-    // cellSize: u16 = 20,
-    // offsetX: u16 = 40,
-    // offsetY: u16 = 50
+    width: u16 = 20,
+    height: u16 = 20,
+    cellSize: u16 = 20,
+    offsetX: u16 = 40,
+    offsetY: u16 = 50
 };
 
 // setup – the net
@@ -71,44 +71,40 @@ pub const Disp: type = struct {
     // active: bool = True
 };
 
-pub fn draw_circles(pos: Vec2) void {
-    _ = pos;
-}
+// pub fn net_modify(window: Window, mesh: struct, circle_verts: [_]f32) void {
+//     try mesh.upload(.{&circle_verts});
+//     const line_indices = [_]gl.GLuint{ 1, 2, 2, 3, 3, 4, 4, 5 };
+//     try mesh.uploadIndices(&line_indices);
+//     gl.pointSize(window.resolution[1] / 20); // Proportional to window height
+//     gl.lineWidth(window.resolution[1] / 20); // Same, but thick lines dont work
+// }
 
 // ---
 
 pub fn main() !void {
-    // openGL
+    // setup – display
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     defer if (gpa.deinit() == .leak) unreachable;
     const alloc = gpa.allocator();
-
     var camera = Camera.init();
     var window = try Window.init(alloc, &camera);
     defer window.kill();
-
     var point_line_shader = try Shader.init("simple", null, "circle");
     defer point_line_shader.kill();
-
     var mesh = try Mesh(.{.{
         .{ .name = "position", .size = 2, .type = gl.FLOAT },
     }}).init(point_line_shader);
     defer mesh.kill();
-    const circle_verts = [_]f32{
-        -0.5, 0.5,
-        -0.3, -0.1,
-        -0.2, -0.4,
-        0.0,  -0.5,
-        0.2,  -0.4,
-        0.3,  -0.1,
-        0.5,  0.5,
-    };
-    try mesh.upload(.{&circle_verts});
-    const line_indices = [_]gl.GLuint{ 1, 2, 2, 3, 3, 4, 4, 5 };
-    try mesh.uploadIndices(&line_indices);
 
-    gl.pointSize(window.resolution[1] / 20); // Proportional to window height
-    gl.lineWidth(window.resolution[1] / 20); // Same, but thick lines dont work
+    // net_modify(window, mesh, [_]f32{
+    //     -0.5, 0.5,
+    //     -0.3, -0.1,
+    //     -0.2, -0.4,
+    //     0.0,  -0.5,
+    //     0.2,  -0.4,
+    //     0.3,  -0.1,
+    //     0.5,  0.5,
+    // });
 
     // main loop
     while (window.ok()) {
