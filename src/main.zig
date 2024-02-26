@@ -87,21 +87,30 @@ pub fn main() !void {
     var window = try Window.init(alloc, &camera);
     defer window.kill();
 
-    var shader = try Shader.init(
-        "simple",
-        null,
-        "simple",
-    );
-    defer shader.kill();
+    var circle_shader = try Shader.init("simple", null, "circle");
+    defer circle_shader.kill();
+    var line_shader = try Shader.init("simple", null, "line");
+    defer line_shader.kill();
 
-    var circles = try Mesh(.{.{
+    var mesh = try Mesh(.{.{
         .{ .name = "position", .size = 2, .type = gl.FLOAT },
-    }}).init(shader);
-    defer circles.kill();
-    const verts = [1][6]f32{[_]f32{ -0.5, -0.5, 0.0, 0.0, 0.5, 0.5 }};
-    try circles.upload(verts);
+    }}).init(circle_shader);
+    defer mesh.kill();
+    const circle_verts = [_]f32{
+        -0.5, 0.5,
+        -0.3, -0.1,
+        -0.2, -0.4,
+        0.0,  -0.5,
+        0.2,  -0.4,
+        0.3,  -0.1,
+        0.5,  0.5,
+    };
+    try mesh.upload(.{&circle_verts});
+    const line_indices = [_]gl.GLuint{ 1, 2, 2, 3, 3, 4, 4, 5 };
+    try mesh.uploadIndices(&line_indices);
 
     gl.pointSize(window.resolution[1] / 20); // Proportional to window height
+    gl.lineWidth(window.resolution[1] / 20); // Same, but thick lines dont work
 
     // main loop
     while (window.ok()) {
@@ -126,8 +135,10 @@ pub fn main() !void {
         //   wait
 
         // move this up to "rendering – the net"
-        shader.use();
-        circles.draw(gl.POINTS);
+        circle_shader.use();
+        mesh.draw(gl.POINTS, true);
+        line_shader.use();
+        mesh.draw(gl.LINES, false);
 
         // move this up to "swap buffers"
         window.swap();
