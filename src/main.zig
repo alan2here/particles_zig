@@ -7,6 +7,13 @@ pub const Particle = struct {
     pos: Vec2,
     vel: Vec2,
 
+    pub fn init(pos: Vec2, vel: Vec2) Link {
+        return Link{
+            .pos = pos,
+            .vel = vel,
+        };
+    }
+
     pub fn accTowardsRadius(self: Particle, other: Particle, other_radius: f64, proportion: f64) void {
         _ = self;
         _ = other;
@@ -21,16 +28,24 @@ pub const Link = struct {
     end1_index: usize,
     end2_index: usize,
     length: f32,
+
+    pub fn init(end1_index: usize, end2_index: usize, length: ?f32) Link {
+        return Link{
+            .end1_index = end1_index,
+            .end2_index = end2_index,
+            .length = length orelse 1,
+        };
+    }
 };
 
 pub const Net = struct {
     // the net contains particles and links between them
     // in this example they are arranged in a grid
-    // width: u16 = 20,
-    // height: u16 = 20,
-    // cellSize: u16 = 20,
-    // offsetX: u16 = 40,
-    // offsetY: u16 = 50
+    width: u16 = 20,
+    height: u16 = 20,
+    cellSize: u16 = 20,
+    offsetX: u16 = 40,
+    offsetY: u16 = 50,
 };
 
 // setup – the net
@@ -48,9 +63,9 @@ pub const Net = struct {
 // setup – physics constants, display, and timing
 
 pub const Phys: type = struct {
-    // coherence: f32 = 0.4, # 0 to (soft 0.5)
-    // gravity: f32 = 0.2,
-    // air_resistance: f32 = 0.01
+    coherence: f32 = 0.4, // 0 to (soft 0.5)
+    gravity: f32 = 0.2,
+    air_resistance: f32 = 0.01,
 
     // physics – links between particles
     // reads pos, affects vel
@@ -59,15 +74,11 @@ pub const Phys: type = struct {
 };
 
 pub const Disp: type = struct {
-    // width: u16 = 1200,
-    // height: u16 = 600,
-    // cap: bool = False,
-    // active: bool = True
+    width: u16 = 1200,
+    height: u16 = 600,
+    cap: bool = false,
+    active: bool = true,
 };
-
-pub fn draw_circle(pos: Vec2) void {
-    _ = pos;
-}
 
 // ---
 
