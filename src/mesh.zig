@@ -67,42 +67,47 @@ pub fn Mesh(comptime attrs: anytype) type {
             }
         }
 
-        pub fn draw(mesh: @This(), mode: gl.GLenum, indices: ?bool) void {
+        pub fn draw(mesh: @This(), mode: gl.GLenum, indices: ?bool, indirect: ?gl.GLuint) void {
             gl.bindVertexArray(mesh.vao.?);
             defer gl.bindVertexArray(0);
-            if (mesh.ebo == null or indices == false) {
-                if (indices == true) unreachable;
-                if (mesh.vert_count orelse 0 == 0) return;
-                gl.drawArrays(
-                    mode,
-                    0,
-                    @intCast(mesh.vert_count.?),
-                );
+            if (indirect) |i| gl.bindBuffer(gl.DRAW_INDIRECT_BUFFER, i);
+            defer if (indirect) |_| gl.bindBuffer(gl.DRAW_INDIRECT_BUFFER, 0);
+            const ebo = if (indices == false) null else mesh.ebo;
+            if (indices == true and ebo == null) unreachable;
+            if (indirect) |_| {
+                if (ebo) |_| {
+                    gl.drawElementsIndirect(mode, mesh.index_type.?, null);
+                } else {
+                    gl.drawArraysIndirect(mode, null);
+                }
             } else {
-                if (mesh.index_count orelse 0 == 0) return;
-                gl.drawElements(
-                    mode,
-                    @intCast(mesh.index_count.?),
-                    mesh.index_type.?,
-                    null,
-                );
+                if (ebo) |_| {
+                    if (mesh.index_count orelse 0 == 0) return;
+                    gl.drawElements(mode, @intCast(mesh.index_count.?), mesh.index_type.?, null);
+                } else {
+                    if (mesh.vert_count orelse 0 == 0) return;
+                    gl.drawArrays(mode, 0, @intCast(mesh.vert_count.?));
+                }
             }
         }
 
         // Resize the VBOs to hold a given capacity of vertices
         pub fn resizeVBOs(mesh: *@This(), vert_num: usize) !void {
-            try _upload(mesh, .{}, vert_num);
+            try updateVBOs(mesh, .{}, vert_num);
         }
 
         // Expects an empty 1D array or a 2D array
         pub fn upload(mesh: *@This(), verts: anytype) !void {
-            try _upload(mesh, verts, null);
+            try updateVBOs(mesh, verts, null);
         }
 
         // Expects an empty 1D array or a 2D array
-        fn _upload(mesh: *@This(), verts: anytype, num_verts: ?usize) !void {
+        fn updateVBOs(mesh: *@This(), verts: anytype, num_verts: ?usize) !void {
             if (verts.len != attrs.len and verts.len != 0) {
-                std.log.err("Mismatch between verts.len({}) and vbos.len ({})\n", .{ verts.len, attrs.len });
+                std.log.err(
+                    "Mismatch between verts.len({}) and vbos.len ({})\n",
+                    .{ verts.len, attrs.len },
+                );
                 return error.BadVertArrCount;
             }
             const vbos = mesh.vbos.?;
@@ -187,11 +192,12 @@ pub fn Mesh(comptime attrs: anytype) type {
                 (size < size_needed * 2 or size - size_needed < 64);
 
             const ids_size: gl.GLsizeiptr = if (indices.len > 0) @intCast(indices.len * @sizeOf(@TypeOf(indices[0]))) else 0;
+            const ids = if (indices.len > 0) &indices[0] else null;
             if (reuse) {
-                gl.bufferSubData(gl.ELEMENT_ARRAY_BUFFER, 0, ids_size, if (indices.len > 0) indices else null);
+                gl.bufferSubData(gl.ELEMENT_ARRAY_BUFFER, 0, ids_size, ids);
             } else {
                 // TODO allocate a little extra to reduce resize frequency?
-                gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, ids_size, if (indices.len > 0) indices else null, gl.STATIC_DRAW);
+                gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, ids_size, ids, gl.STATIC_DRAW);
             }
 
             mesh.index_count = indices.len;
@@ -243,7 +249,13 @@ pub fn Mesh(comptime attrs: anytype) type {
             const f: ?*const anyopaque = if (first == 0) null else @ptrFromInt(first);
 
             if (!force_cast_to_float) switch (attr.type) {
-                gl.BYTE, gl.UNSIGNED_BYTE, gl.SHORT, gl.UNSIGNED_SHORT, gl.INT, gl.UNSIGNED_INT => {
+                gl.BYTE,
+                gl.UNSIGNED_BYTE,
+                gl.SHORT,
+                gl.UNSIGNED_SHORT,
+                gl.INT,
+                gl.UNSIGNED_INT,
+                => {
                     gl.vertexAttribIPointer(index, size, attr.type, stride, f);
                     return;
                 },
@@ -277,7 +289,10 @@ pub fn glOk() !void {
             gl.OUT_OF_MEMORY => "OUT_OF_MEMORY",
             gl.INVALID_FRAMEBUFFER_OPERATION => "INVALID_FRAMEBUFFER_OPERATION",
             else => {
-                std.log.err("OpenGL error code {} missing from glOk\n", .{error_code});
+                std.log.err(
+                    "OpenGL error code {} missing from glOk\n",
+                    .{error_code},
+                );
                 return error.OpenglOk;
             },
         };
@@ -290,7 +305,11 @@ fn glSizeOf(T: gl.GLenum) !usize {
     return switch (T) {
         gl.BYTE, gl.UNSIGNED_BYTE => @sizeOf(gl.GLbyte),
         gl.SHORT, gl.UNSIGNED_SHORT => @sizeOf(gl.GLshort),
-        gl.INT_2_10_10_10_REV, gl.INT, gl.UNSIGNED_INT_2_10_10_10_REV, gl.UNSIGNED_INT => @sizeOf(gl.GLint),
+        gl.INT_2_10_10_10_REV,
+        gl.INT,
+        gl.UNSIGNED_INT_2_10_10_10_REV,
+        gl.UNSIGNED_INT,
+        => @sizeOf(gl.GLint),
         gl.FLOAT => @sizeOf(gl.GLfloat),
         gl.DOUBLE => @sizeOf(gl.GLdouble),
         gl.FIXED => @sizeOf(gl.GLfixed),

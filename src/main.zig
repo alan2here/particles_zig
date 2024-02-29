@@ -1,13 +1,12 @@
 const std = @import("std");
+const vec = @import("vec.zig");
 const GFX = @import("gfx.zig").GFX;
 
-const Vec2 = @Vector(2, f32);
-
 pub const Particle = struct {
-    pos: Vec2,
-    vel: Vec2,
+    pos: vec.Vec2,
+    vel: vec.Vec2,
 
-    pub fn init(pos: Vec2, vel: Vec2) Link {
+    pub fn init(pos: vec.Vec2, vel: vec.Vec2) Link {
         return Link{
             .pos = pos,
             .vel = vel,
@@ -25,14 +24,10 @@ pub const Particle = struct {
 };
 
 pub const Link = struct {
-    end1_index: usize,
-    end2_index: usize,
     length: f32,
 
-    pub fn init(end1_index: usize, end2_index: usize, length: ?f32) Link {
+    pub fn init(length: ?f32) Link {
         return Link{
-            .end1_index = end1_index,
-            .end2_index = end2_index,
             .length = length orelse 1,
         };
     }
@@ -46,6 +41,96 @@ pub const Net = struct {
     cellSize: u16 = 20,
     offsetX: u16 = 40,
     offsetY: u16 = 50,
+
+    links: std.ArrayList(Link),
+    link_indices: std.ArrayList(c_uint),
+    positions: std.ArrayList(vec.Vec2),
+    velocities: std.ArrayList(vec.Vec2),
+
+    pub fn init(alloc: std.mem.Allocator) !Net {
+        var net = Net{
+            .links = undefined,
+            .link_indices = undefined,
+            .positions = undefined,
+            .velocities = undefined,
+        };
+
+        net.links = @TypeOf(net.links).init(alloc);
+        errdefer net.links.deinit();
+        net.link_indices = @TypeOf(net.link_indices).init(alloc);
+        errdefer net.link_indices.deinit();
+        net.positions = @TypeOf(net.positions).init(alloc);
+        errdefer net.positions.deinit();
+        net.velocities = @TypeOf(net.velocities).init(alloc);
+        errdefer net.velocities.deinit();
+
+        try net.link_indices.appendSlice(&[_]c_uint{
+            1, 2,
+            2, 3,
+            3, 4,
+            4, 5,
+        });
+
+        try net.positions.appendSlice(&[_]vec.Vec2{
+            .{ -0.5, 0.5 },
+            .{ -0.3, -0.1 },
+            .{ -0.2, -0.4 },
+            .{ 0.0, -0.5 },
+            .{ 0.2, -0.4 },
+            .{ 0.3, -0.1 },
+            .{ 0.5, 0.5 },
+        });
+
+        try net.links.appendNTimes(Link.init(null), net.link_indices.items.len / 2);
+        try net.velocities.appendNTimes(vec.splat2(0), net.positions.items.len);
+
+        return net;
+    }
+
+    pub fn kill(net: *Net) void {
+        net.links.deinit();
+        net.link_indices.deinit();
+        net.positions.deinit();
+        net.velocities.deinit();
+    }
+
+    // Get the 2 link indices from the link ID
+    fn getLinkIndices(net: *Net, link_id: usize) struct { l: usize, r: usize } {
+        const l = net.link_indices.items[link_id * 2];
+        const r = net.link_indices.items[link_id * 2 + 1];
+        return .{ .l = l, .r = r };
+    }
+
+    // Get the 2 link vertex positions from the link ID
+    fn getLinkPos(net: *Net, link_id: usize) struct { l: *vec.Vec2, r: *vec.Vec2 } {
+        const indices = net.getLinkIndices(link_id);
+        const positions = net.positions.items;
+        return .{ .l = &positions[indices.l], .r = &positions[indices.r] };
+    }
+
+    // Get the 2 link vertex velocities from the link ID
+    fn getLinkVel(net: *Net, link_id: usize) struct { l: *vec.Vec2, r: *vec.Vec2 } {
+        const indices = net.getLinkIndices(link_id);
+        const velocities = net.velocities.items;
+        return .{ .l = &velocities[indices.l], .r = &velocities[indices.r] };
+    }
+
+    pub fn simulate(net: *Net, delta: f32) void {
+        const proportion = 0.5; // TODO decide
+        for (net.links.items, 0..) |link, i| {
+            const positions = net.getLinkPos(i);
+            const diff = positions.l.* - positions.r.*;
+            const force = vec.len2(diff)[0] - link.length;
+            const acc = vec.norm2(diff) * vec.splat2(force * proportion * delta);
+
+            const velocities = net.getLinkVel(i);
+            velocities.l.* += acc;
+            velocities.r.* -= acc;
+        }
+        for (net.positions.items, net.velocities.items) |*pos, *vel| {
+            pos.* += vec.splat2(delta) * vel.*;
+        }
+    }
 };
 
 // setup – the net
@@ -90,26 +175,15 @@ pub fn main() !void {
     var gfx = try GFX.init(alloc);
     defer gfx.kill();
 
-    const line_indices = [_]c_uint{
-        1, 2,
-        2, 3,
-        3, 4,
-        4, 5,
-    };
-    try gfx.mesh.uploadIndices(&line_indices);
-    const circle_verts = [_]f32{
-        -0.5, 0.5,
-        -0.3, -0.1,
-        -0.2, -0.4,
-        0.0,  -0.5,
-        0.2,  -0.4,
-        0.3,  -0.1,
-        0.5,  0.5,
-    };
-    try gfx.mesh.upload(.{&circle_verts});
+    var net = try Net.init(alloc);
+    defer net.kill();
+    try gfx.mesh.uploadIndices(net.link_indices.items);
 
     // main loop
     while (try gfx.window.ok()) {
+        net.simulate(gfx.window.delta);
+        try gfx.mesh.upload(.{net.positions.items});
+
         // physics – links between particles
         // reads pos, affects vel
         // for link in links:

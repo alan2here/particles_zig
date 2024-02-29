@@ -62,9 +62,9 @@ pub const GFX = struct {
     pub fn draw(gfx: GFX) void {
         gfx.window.clearColour(0.05, 0.04, 0.05, 1);
         gfx.line_shader.use();
-        gfx.mesh.draw(gl.LINES, true);
+        gfx.mesh.draw(gl.LINES, true, null);
         gfx.circle_shader.use();
-        gfx.mesh.draw(gl.POINTS, false);
+        gfx.mesh.draw(gl.POINTS, false, null);
         gfx.window.swap();
     }
 };
