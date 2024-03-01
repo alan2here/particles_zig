@@ -2,12 +2,21 @@ const std = @import("std");
 const vec = @import("vec.zig");
 const GFX = @import("gfx.zig").GFX;
 
+const CFG = .{
+    .air_resistance = 1,
+    .draw = true,
+    .gravity = 0.1,
+    .tension = 10,
+    .timescale = 10,
+    .vsync = true,
+};
+
 pub const Link = struct {
     length: f32,
 
     pub fn init(length: ?f32) Link {
         return .{
-            .length = length orelse 0.1,
+            .length = length orelse 0.2,
         };
     }
 };
@@ -55,6 +64,16 @@ pub const Net = struct {
         net.point_positions = @TypeOf(net.point_positions).init(alloc);
         errdefer net.point_positions.deinit();
 
+        // setup – the net
+        // particles = []
+        // links = []
+        // for y in range(net.height):
+        //     for x in range(net.width):
+        //         particles.append(particle(vec2(x * net.cellSize + net.offsetX, y * net.cellSize + net.offsetY)))
+        //     for x in range(net.width - 1):
+        //         links.append(link(y * net.height + x, y * net.height + x + 1, net.cellSize))
+        //         links.append(link(x * net.width + y, (x + 1) * net.width + y, net.cellSize))
+
         try net.link_indices.appendSlice(&[_]c_uint{
             1, 2,
             2, 3,
@@ -72,10 +91,18 @@ pub const Net = struct {
             .{ 0.8, 0.5 },
         });
 
-        try net.links.appendNTimes(Link.init(null), net.link_indices.items.len / 2);
-        try net.points.appendNTimes(Point.init(null, null), net.point_positions.items.len);
+        try net.links.appendNTimes(
+            Link.init(null),
+            net.link_indices.items.len / 2,
+        );
+        try net.points.appendNTimes(
+            Point.init(null, null),
+            net.point_positions.items.len,
+        );
+        net.points.items[0].pin = true;
         net.points.items[1].pin = true;
         net.points.items[5].pin = true;
+        net.points.items[6].pin = true;
 
         return net;
     }
@@ -99,70 +126,47 @@ pub const Net = struct {
     }
 
     // Get the 2 link vertex positions from the link ID
-    fn getLinkPos(net: *Net, link_id: usize) Pair(*vec.Vec2) {
-        const indices = net.getLinkIndices(link_id);
+    fn getLinkPositions(net: *Net, link_id: usize) Pair(*vec.Vec2) {
+        const ids = net.getLinkIndices(link_id);
         const positions = net.point_positions.items;
-        return .{ .l = &positions[indices.l], .r = &positions[indices.r] };
+        return .{ .l = &positions[ids.l], .r = &positions[ids.r] };
     }
 
     // Get the 2 link vertex velocities from the link ID
-    fn getLinkVel(net: *Net, link_id: usize) Pair(*vec.Vec2) {
-        const indices = net.getLinkIndices(link_id);
-        const vels = net.points.items;
-        return .{ .l = &vels[indices.l].vel, .r = &vels[indices.r].vel };
+    fn getLinkPoints(net: *Net, link_id: usize) Pair(*Point) {
+        const ids = net.getLinkIndices(link_id);
+        const points = net.points.items;
+        return .{ .l = &points[ids.l], .r = &points[ids.r] };
     }
 
-    pub fn simulate(net: *Net, delta: f32) void {
-        const time_scale = 1; // TODO decide
+    pub fn simulate(net: *Net, _delta: f32) void {
+        // Calculate time step to simulate
+        const delta = CFG.timescale * _delta;
+        // Use links to update velocities
         for (net.links.items, 0..) |link, i| {
-            const positions = net.getLinkPos(i);
+            const positions = net.getLinkPositions(i);
             const diff = positions.l.* - positions.r.*;
             const force = vec.len2(diff)[0] - link.length;
-            const acc = vec.norm2(diff) * vec.splat2(force * time_scale * delta);
-
-            const velocities = net.getLinkVel(i);
-            velocities.l.* -= acc;
-            velocities.r.* += acc;
+            const acc = vec.norm2(diff) * vec.splat2(force * delta * CFG.tension);
+            const points = net.getLinkPoints(i);
+            if (!points.l.pin) points.l.vel -= acc;
+            if (!points.r.pin) points.r.vel += acc;
         }
+        // Calculate friction from air resistance
+        const power = -delta * CFG.air_resistance;
+        const friction = vec.splat2(std.math.pow(f32, 2, power));
+        // Update velocities and positions
         for (net.points.items, net.point_positions.items) |*point, *pos| {
-            if (!point.pin) pos.* += vec.splat2(delta) * point.vel;
+            if (point.pin) {
+                point.vel = vec.splat2(0);
+            } else {
+                point.vel[1] -= CFG.gravity * delta;
+                point.vel *= friction;
+                pos.* += point.vel * vec.splat2(delta);
+            }
         }
     }
 };
-
-// setup – the net
-// pub var particles = []
-// pub var links = []
-// for y in range(net.height):
-// for x in range(net.width):
-// particles.append(particle(vec2(x * net.cellSize + net.offsetX, y * net.cellSize + net.offsetY)))
-// for x in range(net.width - 1):
-// links.append(link(y * net.height + x, y * net.height + x + 1, net.cellSize))
-// links.append(link(x * net.width + y, (x + 1) * net.width + y, net.cellSize))
-
-// ---
-
-// setup – physics constants, display, and timing
-
-pub const Phys: type = struct {
-    coherence: f32 = 0.4, // 0 to (soft 0.5)
-    gravity: f32 = 0.2,
-    air_resistance: f32 = 0.01,
-
-    // physics – links between particles
-    // reads pos, affects vel
-    // in a separate function for ease of profiling
-    pub fn links() void {}
-};
-
-pub const Disp: type = struct {
-    width: u16 = 1200,
-    height: u16 = 600,
-    cap: bool = false,
-    active: bool = true,
-};
-
-// ---
 
 pub fn main() !void {
     var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
@@ -171,6 +175,7 @@ pub fn main() !void {
 
     var gfx = try GFX.init(alloc);
     defer gfx.kill();
+    gfx.toggleVSync(CFG.vsync);
 
     var net = try Net.init(alloc);
     defer net.kill();
@@ -180,19 +185,6 @@ pub fn main() !void {
     while (gfx.window.ok()) {
         net.simulate(gfx.window.delta);
         try gfx.mesh.upload(.{net.point_positions.items});
-
-        // physics – links between particles
-        // reads pos, affects vel
-        // for link in links:
-        //     particles[link.end1_index].accTowardsRadius(
-        //         particles[link.end2_index], link.length, phys.coherence)
-        //     particles[link.end2_index].accTowardsRadius(
-        //         particles[link.end1_index], link.length, phys.coherence)
-
-        // physics – gravity, momentum, and air resistance
-
-        // physics – pin the top of the net
-
-        gfx.draw();
+        if (CFG.draw) gfx.draw();
     }
 }
