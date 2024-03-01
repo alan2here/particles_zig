@@ -2,12 +2,14 @@ const std = @import("std");
 const vec = @import("vec.zig");
 const GFX = @import("gfx.zig").GFX;
 
+// TODO If timescale / iterations >= FPS / 120 then this goes crazy
 const CFG = .{
-    .air_resistance = 1,
+    .air_resistance = 4,
     .draw = true,
-    .gravity = 0.1,
-    .tension = 10,
-    .timescale = 10,
+    .gravity = 1,
+    .iterations = 4,
+    .tension = 10000,
+    .timescale = 1,
     .vsync = true,
 };
 
@@ -34,13 +36,12 @@ pub const Point = struct {
 };
 
 pub const Net = struct {
-    // the net contains points and links between them
-    // in this example they are arranged in a grid
-    width: u16 = 20,
-    height: u16 = 20,
-    cellSize: u16 = 20,
-    offsetX: u16 = 40,
-    offsetY: u16 = 50,
+    // The net contains points and links between them
+    // In this example they are arranged in a grid
+    const WIDTH = 20;
+    const HEIGHT = 20;
+    const GAP = 1.0 / 13.0;
+    const OFFSET = vec.Vec2{ 0, GAP * 2.3 };
 
     links: std.ArrayList(Link),
     link_indices: std.ArrayList(c_uint),
@@ -64,45 +65,41 @@ pub const Net = struct {
         net.point_positions = @TypeOf(net.point_positions).init(alloc);
         errdefer net.point_positions.deinit();
 
-        // setup – the net
-        // particles = []
-        // links = []
-        // for y in range(net.height):
-        //     for x in range(net.width):
+        // for y in range(Net.HEIGHT):
+        //     for x in range(Net.WIDTH):
         //         particles.append(particle(vec2(x * net.cellSize + net.offsetX, y * net.cellSize + net.offsetY)))
-        //     for x in range(net.width - 1):
-        //         links.append(link(y * net.height + x, y * net.height + x + 1, net.cellSize))
-        //         links.append(link(x * net.width + y, (x + 1) * net.width + y, net.cellSize))
+        //     for x in range(Net.WIDTH - 1):
+        //         links.append(link(y * Net.HEIGHT + x, y * Net.HEIGHT + x + 1, net.cellSize))
+        //         links.append(link(x * Net.WIDTH + y, (x + 1) * Net.WIDTH + y, net.cellSize))
 
-        try net.link_indices.appendSlice(&[_]c_uint{
-            1, 2,
-            2, 3,
-            3, 4,
-            4, 5,
-        });
-
-        try net.point_positions.appendSlice(&[_]vec.Vec2{
-            .{ -0.8, 0.5 },
-            .{ -0.7, -0.2 },
-            .{ -0.4, -0.5 },
-            .{ 0.0, -0.6 },
-            .{ 0.4, -0.5 },
-            .{ 0.7, -0.2 },
-            .{ 0.8, 0.5 },
-        });
-
-        try net.links.appendNTimes(
-            Link.init(null),
-            net.link_indices.items.len / 2,
-        );
-        try net.points.appendNTimes(
-            Point.init(null, null),
-            net.point_positions.items.len,
-        );
-        net.points.items[0].pin = true;
-        net.points.items[1].pin = true;
-        net.points.items[5].pin = true;
-        net.points.items[6].pin = true;
+        // Create links and points
+        for (0..Net.HEIGHT) |row| {
+            for (0..Net.WIDTH) |col| {
+                // Create links
+                if (col + 1 < Net.WIDTH) try net.addLink(
+                    row * Net.WIDTH + col,
+                    row * Net.WIDTH + col + 1,
+                    GAP,
+                );
+                if (row + 1 < Net.HEIGHT) try net.addLink(
+                    col + Net.WIDTH * row,
+                    col + Net.WIDTH * (row + 1),
+                    GAP,
+                );
+                // Create points
+                var pos = vec.Vec2{
+                    @floatFromInt(col),
+                    @floatFromInt(row),
+                };
+                pos -= vec.Vec2{
+                    @floatFromInt(Net.WIDTH - 1),
+                    @floatFromInt(Net.HEIGHT - 1),
+                } / vec.splat2(2);
+                pos = pos * vec.splat2(Net.GAP) + Net.OFFSET;
+                // try net.addPoint(pos, row + 1 == Net.HEIGHT);
+                try net.addPoint(pos, row + 1 == Net.HEIGHT and (col == 0 or col + 1 == Net.WIDTH));
+            }
+        }
 
         return net;
     }
@@ -114,12 +111,23 @@ pub const Net = struct {
         net.point_positions.deinit();
     }
 
+    fn addLink(net: *Net, index_l: usize, index_r: usize, length: ?f32) !void {
+        try net.links.append(Link.init(length));
+        try net.link_indices.append(@intCast(index_l));
+        try net.link_indices.append(@intCast(index_r));
+    }
+
+    fn addPoint(net: *Net, pos: vec.Vec2, pin: ?bool) !void {
+        try net.points.append(Point.init(null, pin));
+        try net.point_positions.append(pos);
+    }
+
     fn Pair(comptime T: type) type {
         return struct { l: T, r: T };
     }
 
     // Get the 2 link indices from the link ID
-    fn getLinkIndices(net: *Net, link_id: usize) Pair(usize) {
+    fn getLinkIndices(net: *Net, link_id: usize) Pair(c_uint) {
         const l = net.link_indices.items[link_id * 2];
         const r = net.link_indices.items[link_id * 2 + 1];
         return .{ .l = l, .r = r };
@@ -141,28 +149,30 @@ pub const Net = struct {
 
     pub fn simulate(net: *Net, _delta: f32) void {
         // Calculate time step to simulate
-        const delta = CFG.timescale * _delta;
-        // Use links to update velocities
-        for (net.links.items, 0..) |link, i| {
-            const positions = net.getLinkPositions(i);
-            const diff = positions.l.* - positions.r.*;
-            const force = vec.len2(diff)[0] - link.length;
-            const acc = vec.norm2(diff) * vec.splat2(force * delta * CFG.tension);
-            const points = net.getLinkPoints(i);
-            if (!points.l.pin) points.l.vel -= acc;
-            if (!points.r.pin) points.r.vel += acc;
-        }
-        // Calculate friction from air resistance
-        const power = -delta * CFG.air_resistance;
-        const friction = vec.splat2(std.math.pow(f32, 2, power));
-        // Update velocities and positions
-        for (net.points.items, net.point_positions.items) |*point, *pos| {
-            if (point.pin) {
-                point.vel = vec.splat2(0);
-            } else {
-                point.vel[1] -= CFG.gravity * delta;
-                point.vel *= friction;
-                pos.* += point.vel * vec.splat2(delta);
+        const delta = CFG.timescale * _delta / CFG.iterations;
+        for (0..CFG.iterations) |_| {
+            // Use links to update velocities
+            for (net.links.items, 0..) |link, i| {
+                const positions = net.getLinkPositions(i);
+                const diff = positions.l.* - positions.r.*;
+                const force = vec.len2(diff)[0] - link.length;
+                const acc = vec.norm2(diff) * vec.splat2(force * delta * CFG.tension);
+                const points = net.getLinkPoints(i);
+                if (!points.l.pin) points.l.vel -= acc;
+                if (!points.r.pin) points.r.vel += acc;
+            }
+            // Calculate friction from air resistance
+            const power = -delta * CFG.air_resistance;
+            const friction = vec.splat2(std.math.pow(f32, 2, power));
+            // Update velocities and positions
+            for (net.points.items, net.point_positions.items) |*point, *pos| {
+                if (point.pin) {
+                    point.vel = vec.splat2(0);
+                } else {
+                    point.vel[1] -= CFG.gravity * delta;
+                    point.vel *= friction;
+                    pos.* += point.vel * vec.splat2(delta);
+                }
             }
         }
     }
@@ -181,7 +191,6 @@ pub fn main() !void {
     defer net.kill();
     try gfx.mesh.uploadIndices(net.link_indices.items);
 
-    // main loop
     while (gfx.window.ok()) {
         net.simulate(gfx.window.delta);
         try gfx.mesh.upload(.{net.point_positions.items});

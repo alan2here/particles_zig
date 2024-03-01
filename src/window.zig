@@ -21,7 +21,7 @@ pub const Window = struct {
     binds: std.AutoHashMap(glfw.Key, Action),
     actionState: [@typeInfo(Action).Enum.fields.len]bool,
     input: zm.Vec,
-    camera: *Camera,
+    camera: ?*Camera,
 
     const Action = enum {
         left,
@@ -34,7 +34,7 @@ pub const Window = struct {
         attack2,
     };
 
-    pub fn init(alloc: std.mem.Allocator, camera: *Camera) !Window {
+    pub fn init(alloc: std.mem.Allocator, camera: ?*Camera, title: [*:0]const u8) !Window {
         // Ensure GLFW errors are logged
         glfw.setErrorCallback(errorCallback);
 
@@ -68,7 +68,7 @@ pub const Window = struct {
         const window = glfw.Window.create(
             @intFromFloat(resolution[0]),
             @intFromFloat(resolution[1]),
-            "particles_zig",
+            title,
             if (windowed) null else monitor,
             null,
             .{
@@ -253,7 +253,7 @@ pub const Window = struct {
         win.new_viewport = size;
     }
 
-    fn calcResolution(windowed: bool, camera: *Camera) !zm.Vec {
+    fn calcResolution(windowed: bool, camera: ?*Camera) !zm.Vec {
         // Obtain primary monitor
         const monitor = glfw.Monitor.getPrimary() orelse {
             std.log.err("Failed to get primary monitor: {?s}", .{glfw.getErrorString()});
@@ -275,7 +275,7 @@ pub const Window = struct {
             @floatFromInt(mode.getWidth()),
             @floatFromInt(mode.getHeight()),
         ) * zm.f32x4(scale, scale, scale_gap, scale_gap);
-        camera.calcAspect(size);
+        if (camera) |cam| cam.calcAspect(size);
         return size;
     }
 

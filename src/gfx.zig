@@ -4,11 +4,9 @@ const glfw = @import("glfw");
 const zm = @import("zmath");
 const Window = @import("window.zig").Window;
 const Shader = @import("shader.zig").Shader;
-const Camera = @import("camera.zig").Camera;
 const Mesh = @import("mesh.zig").Mesh;
 
 pub const GFX = struct {
-    camera: Camera,
     window: Window,
     line_shader: Shader,
     circle_shader: Shader,
@@ -18,12 +16,11 @@ pub const GFX = struct {
     vsync: bool,
 
     pub fn init(alloc: std.mem.Allocator) !GFX {
-        const LINE_WIDTH = 0.02;
-        const CIRCLE_SIZE = 0.032;
+        const LINE_WIDTH = 0.015;
+        const CIRCLE_SIZE = 0.02;
         const LINE_COLOUR = &[4]f32{ 0, 0, 1, 1 };
         const CIRCLE_COLOUR = &[4]f32{ 1, 1, 1, 1 };
         var gfx = GFX{
-            .camera = Camera.init(),
             .window = undefined,
             .line_shader = undefined,
             .circle_shader = undefined,
@@ -31,7 +28,7 @@ pub const GFX = struct {
             .vsync = true,
         };
         // Camera (unused) and window
-        gfx.window = try Window.init(alloc, &gfx.camera);
+        gfx.window = try Window.init(alloc, null, "particles_zig");
         errdefer gfx.window.kill();
         const aspect = gfx.window.resolution[0] / gfx.window.resolution[1];
         // Shader to draw thick (triangle strip) lines from thin lines
