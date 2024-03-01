@@ -1,5 +1,6 @@
 const std = @import("std");
 const gl = @import("gl");
+const glfw = @import("glfw");
 const zm = @import("zmath");
 const Window = @import("window.zig").Window;
 const Shader = @import("shader.zig").Shader;
@@ -14,6 +15,7 @@ pub const GFX = struct {
     mesh: Mesh(.{.{
         .{ .name = "position", .size = 2, .type = gl.FLOAT },
     }}),
+    vsync: bool,
 
     pub fn init(alloc: std.mem.Allocator) !GFX {
         const LINE_WIDTH = 0.02;
@@ -26,6 +28,7 @@ pub const GFX = struct {
             .line_shader = undefined,
             .circle_shader = undefined,
             .mesh = undefined,
+            .vsync = true,
         };
         // Camera (unused) and window
         gfx.window = try Window.init(alloc, &gfx.camera);
@@ -68,5 +71,10 @@ pub const GFX = struct {
         gfx.circle_shader.use();
         gfx.mesh.draw(gl.POINTS, false, null);
         gfx.window.swap();
+    }
+
+    pub fn toggleVSync(gfx: *GFX, vsync: ?bool) void {
+        gfx.vsync = vsync orelse !gfx.vsync;
+        glfw.swapInterval(if (gfx.vsync) 1 else 0);
     }
 };

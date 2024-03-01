@@ -87,28 +87,29 @@ pub const Net = struct {
         net.point_positions.deinit();
     }
 
+    fn Pair(comptime T: type) type {
+        return struct { l: T, r: T };
+    }
+
     // Get the 2 link indices from the link ID
-    fn getLinkIndices(net: *Net, link_id: usize) struct { l: usize, r: usize } {
+    fn getLinkIndices(net: *Net, link_id: usize) Pair(usize) {
         const l = net.link_indices.items[link_id * 2];
         const r = net.link_indices.items[link_id * 2 + 1];
         return .{ .l = l, .r = r };
     }
 
     // Get the 2 link vertex positions from the link ID
-    fn getLinkPos(net: *Net, link_id: usize) struct { l: *vec.Vec2, r: *vec.Vec2 } {
+    fn getLinkPos(net: *Net, link_id: usize) Pair(*vec.Vec2) {
         const indices = net.getLinkIndices(link_id);
         const positions = net.point_positions.items;
         return .{ .l = &positions[indices.l], .r = &positions[indices.r] };
     }
 
     // Get the 2 link vertex velocities from the link ID
-    fn getLinkVel(net: *Net, link_id: usize) struct { l: *vec.Vec2, r: *vec.Vec2 } {
+    fn getLinkVel(net: *Net, link_id: usize) Pair(*vec.Vec2) {
         const indices = net.getLinkIndices(link_id);
-        const velocities = net.points.items;
-        return .{
-            .l = &velocities[indices.l].vel,
-            .r = &velocities[indices.r].vel,
-        };
+        const vels = net.points.items;
+        return .{ .l = &vels[indices.l].vel, .r = &vels[indices.r].vel };
     }
 
     pub fn simulate(net: *Net, delta: f32) void {
@@ -176,7 +177,7 @@ pub fn main() !void {
     try gfx.mesh.uploadIndices(net.link_indices.items);
 
     // main loop
-    while (try gfx.window.ok()) {
+    while (gfx.window.ok()) {
         net.simulate(gfx.window.delta);
         try gfx.mesh.upload(.{net.point_positions.items});
 

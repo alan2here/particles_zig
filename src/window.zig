@@ -165,7 +165,7 @@ pub const Window = struct {
         if (windows == 0) glfw.terminate();
     }
 
-    pub fn ok(win: *Window) !bool {
+    pub fn ok(win: *Window) bool {
         // Clear mouse delta
         win.mouse_delta = @splat(0);
         win.scroll_delta = @splat(0);
@@ -178,7 +178,7 @@ pub const Window = struct {
             if (@floor(time) != @floor(new_time)) {
                 const fps: usize = @intFromFloat(@min(1 / win.delta, 999999));
                 var b: [10:0]u8 = undefined;
-                const slice = try std.fmt.bufPrint(&b, "{} FPS", .{fps});
+                const slice = std.fmt.bufPrint(&b, "{} FPS", .{fps}) catch unreachable;
                 std.debug.print("{s}\n", .{slice});
                 b[slice.len] = 0;
                 win.window.setTitle(&b);
