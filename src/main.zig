@@ -63,13 +63,13 @@ pub const Net = struct {
         });
 
         try net.point_positions.appendSlice(&[_]vec.Vec2{
-            .{ -0.5, 0.5 },
-            .{ -0.3, -0.1 },
-            .{ -0.2, -0.4 },
-            .{ 0.0, -0.5 },
-            .{ 0.2, -0.4 },
-            .{ 0.3, -0.1 },
-            .{ 0.5, 0.5 },
+            .{ -0.8, 0.5 },
+            .{ -0.7, -0.2 },
+            .{ -0.4, -0.5 },
+            .{ 0.0, -0.6 },
+            .{ 0.4, -0.5 },
+            .{ 0.7, -0.2 },
+            .{ 0.8, 0.5 },
         });
 
         try net.links.appendNTimes(Link.init(null), net.link_indices.items.len / 2);
@@ -112,12 +112,12 @@ pub const Net = struct {
     }
 
     pub fn simulate(net: *Net, delta: f32) void {
-        const proportion = 0.5; // TODO decide
+        const time_scale = 1; // TODO decide
         for (net.links.items, 0..) |link, i| {
             const positions = net.getLinkPos(i);
             const diff = positions.l.* - positions.r.*;
             const force = vec.len2(diff)[0] - link.length;
-            const acc = vec.norm2(diff) * vec.splat2(force * proportion * delta);
+            const acc = vec.norm2(diff) * vec.splat2(force * time_scale * delta);
 
             const velocities = net.getLinkVel(i);
             velocities.l.* -= acc;

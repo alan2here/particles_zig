@@ -4,16 +4,16 @@ layout (lines) in;
 layout (triangle_strip, max_vertices = 4) out;
 
 uniform float line_width;
-uniform vec2 resolution;
+uniform float aspect;
 
 void main()
 {
     const vec2 dir = (gl_in[1].gl_Position - gl_in[0].gl_Position).xy;
     vec2 norm = vec2(dir.y, -dir.x);
     // Correct for aspect ratio
-    norm.y *= resolution.x / resolution.y;
+    norm.y *= aspect;
     norm = normalize(norm);
-    norm.x /= resolution.x / resolution.y;
+    norm.x /= aspect;
 
     for (int vert = 0; vert < 4; ++vert)
     {
