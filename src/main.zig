@@ -4,10 +4,11 @@ const GFX = @import("gfx.zig").GFX;
 
 // TODO If timescale / iterations >= FPS / 120 then this goes crazy
 const CFG = .{
-    .air_resistance = 4,
+    .air_resistance = 2,
     .draw = true,
-    .gravity = 1,
-    .iterations = 4,
+    .gravity = 4,
+    .min_iters = 1,
+    .max_step = 0.005, // 1 / 200
     .tension = 10000,
     .timescale = 1,
     .vsync = true,
@@ -96,8 +97,15 @@ pub const Net = struct {
                     @floatFromInt(Net.HEIGHT - 1),
                 } / vec.splat2(2);
                 pos = pos * vec.splat2(Net.GAP) + Net.OFFSET;
-                // try net.addPoint(pos, row + 1 == Net.HEIGHT);
-                try net.addPoint(pos, row + 1 == Net.HEIGHT and (col == 0 or col + 1 == Net.WIDTH));
+                try net.addPoint(
+                    pos,
+                    .{
+                        @as(f32, @floatFromInt(row + col)) * 0.1,
+                        -@as(f32, @floatFromInt(row + col)) * 0.1,
+                    },
+                    row + 1 == Net.HEIGHT,
+                );
+                // try net.addPoint(pos, row + 1 == Net.HEIGHT and (col == 0 or col + 1 == Net.WIDTH));
             }
         }
 
@@ -117,8 +125,8 @@ pub const Net = struct {
         try net.link_indices.append(@intCast(index_r));
     }
 
-    fn addPoint(net: *Net, pos: vec.Vec2, pin: ?bool) !void {
-        try net.points.append(Point.init(null, pin));
+    fn addPoint(net: *Net, pos: vec.Vec2, vel: vec.Vec2, pin: ?bool) !void {
+        try net.points.append(Point.init(vel, pin));
         try net.point_positions.append(pos);
     }
 
@@ -149,8 +157,13 @@ pub const Net = struct {
 
     pub fn simulate(net: *Net, _delta: f32) void {
         // Calculate time step to simulate
-        const delta = CFG.timescale * _delta / CFG.iterations;
-        for (0..CFG.iterations) |_| {
+        var iters: usize = CFG.min_iters; // usize because it gives us the largest fast int
+        var delta: f32 = CFG.max_step;
+        while (delta >= CFG.max_step) {
+            iters *= 2;
+            delta = CFG.timescale * _delta / @as(f32, @floatFromInt(iters));
+        }
+        for (0..iters) |_| {
             // Use links to update velocities
             for (net.links.items, 0..) |link, i| {
                 const positions = net.getLinkPositions(i);
