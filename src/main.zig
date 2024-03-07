@@ -66,13 +66,6 @@ pub const Net = struct {
         net.point_positions = @TypeOf(net.point_positions).init(alloc);
         errdefer net.point_positions.deinit();
 
-        // for y in range(Net.HEIGHT):
-        //     for x in range(Net.WIDTH):
-        //         particles.append(particle(vec2(x * net.cellSize + net.offsetX, y * net.cellSize + net.offsetY)))
-        //     for x in range(Net.WIDTH - 1):
-        //         links.append(link(y * Net.HEIGHT + x, y * Net.HEIGHT + x + 1, net.cellSize))
-        //         links.append(link(x * Net.WIDTH + y, (x + 1) * Net.WIDTH + y, net.cellSize))
-
         // Create links and points
         for (0..Net.HEIGHT) |row| {
             for (0..Net.WIDTH) |col| {
