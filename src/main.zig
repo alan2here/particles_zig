@@ -7,8 +7,8 @@ const CFG = .{
     .air_resistance = 2,
     .draw = true,
     .gravity = 4,
-    .min_iters = 1,
-    .max_step = 0.005, // 1 / 200
+    .min_iters_per_frame = 1,
+    .min_iters_per_second = 200,
     .tension = 10000,
     .timescale = 1,
     .vsync = true,
@@ -149,14 +149,12 @@ pub const Net = struct {
     }
 
     pub fn simulate(net: *Net, _delta: f32) void {
-        // Calculate time step to simulate
-        var iters: usize = CFG.min_iters; // usize because it gives us the largest fast int
-        var delta: f32 = CFG.max_step;
-        while (delta >= CFG.max_step) {
-            iters *= 2;
-            delta = CFG.timescale * _delta / @as(f32, @floatFromInt(iters));
-        }
-        for (0..iters) |_| {
+        // Calculate number of iterations to simulate this frame
+        var iters = @ceil(_delta * CFG.min_iters_per_second);
+        iters = @max(iters, CFG.min_iters_per_frame);
+        // Calculate time step to simulate for each iteration
+        const delta: f32 = CFG.timescale * _delta / iters;
+        for (0..@intFromFloat(iters)) |_| {
             // Use links to update velocities
             for (net.links.items, 0..) |link, i| {
                 const positions = net.getLinkPositions(i);
