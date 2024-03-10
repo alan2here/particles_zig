@@ -1,4 +1,5 @@
 const std = @import("std");
+const gl = @import("gl");
 const vec = @import("vec.zig");
 const GFX = @import("gfx.zig").GFX;
 
@@ -45,9 +46,10 @@ pub const Net = struct {
     const OFFSET = vec.Vec2{ 0, GAP * 2.3 };
 
     links: std.ArrayList(Link),
-    link_indices: std.ArrayList(c_uint),
+    link_indices: std.ArrayList(gl.GLuint),
     points: std.ArrayList(Point),
     point_positions: std.ArrayList(vec.Vec2),
+    line_buffer: ?gl.GLuint,
 
     pub fn init(alloc: std.mem.Allocator) !Net {
         var net = Net{
@@ -55,6 +57,7 @@ pub const Net = struct {
             .link_indices = undefined,
             .points = undefined,
             .point_positions = undefined,
+            .line_buffer = null,
         };
 
         net.links = @TypeOf(net.links).init(alloc);
@@ -65,6 +68,11 @@ pub const Net = struct {
         errdefer net.points.deinit();
         net.point_positions = @TypeOf(net.point_positions).init(alloc);
         errdefer net.point_positions.deinit();
+
+        var line_buffer: gl.GLuint = undefined;
+        gl.genBuffers(1, &line_buffer);
+        net.line_buffer = line_buffer;
+        errdefer gl.deleteBuffers(1, &line_buffer);
 
         // Create links and points
         for (0..Net.HEIGHT) |row| {
@@ -92,13 +100,11 @@ pub const Net = struct {
                 pos = pos * vec.splat2(Net.GAP) + Net.OFFSET;
                 try net.addPoint(
                     pos,
-                    .{
-                        @as(f32, @floatFromInt(row + col)) * 0.1,
-                        -@as(f32, @floatFromInt(row + col)) * 0.1,
-                    },
+                    vec.splat2(@as(f32, @floatFromInt(row + col))) * vec.Vec2{ 0.1, -0.1 },
                     row + 1 == Net.HEIGHT,
                 );
-                // try net.addPoint(pos, row + 1 == Net.HEIGHT and (col == 0 or col + 1 == Net.WIDTH));
+                // try net.addPoint(pos, null, row + 1 == Net.HEIGHT and (col == 0 or col + 1 == Net.WIDTH));
+                // try net.addPoint(pos, null, (row == 0 or row + 1 == Net.HEIGHT) and (col == 0 or col + 1 == Net.WIDTH));
             }
         }
 
@@ -110,6 +116,10 @@ pub const Net = struct {
         net.link_indices.deinit();
         net.points.deinit();
         net.point_positions.deinit();
+        if (net.line_buffer) |line_buffer| {
+            gl.deleteBuffers(1, &line_buffer);
+            net.line_buffer = null;
+        }
     }
 
     fn addLink(net: *Net, index_l: usize, index_r: usize, length: ?f32) !void {
@@ -118,8 +128,8 @@ pub const Net = struct {
         try net.link_indices.append(@intCast(index_r));
     }
 
-    fn addPoint(net: *Net, pos: vec.Vec2, vel: vec.Vec2, pin: ?bool) !void {
-        try net.points.append(Point.init(vel, pin));
+    fn addPoint(net: *Net, pos: vec.Vec2, vel: ?vec.Vec2, pin: ?bool) !void {
+        try net.points.append(Point.init(vel orelse .{ 0, 0 }, pin));
         try net.point_positions.append(pos);
     }
 
@@ -128,7 +138,7 @@ pub const Net = struct {
     }
 
     // Get the 2 link indices from the link ID
-    fn getLinkIndices(net: *Net, link_id: usize) Pair(c_uint) {
+    fn getLinkIndices(net: *Net, link_id: usize) Pair(gl.GLuint) {
         const l = net.link_indices.items[link_id * 2];
         const r = net.link_indices.items[link_id * 2 + 1];
         return .{ .l = l, .r = r };
@@ -180,6 +190,27 @@ pub const Net = struct {
             }
         }
     }
+
+    pub fn uploadPoints(net: *Net, gfx: *GFX) !void {
+        try gfx.mesh.upload(.{net.point_positions.items});
+    }
+
+    pub fn uploadLines(net: *Net, gfx: *GFX) !void {
+        gl.bindBuffer(gl.SHADER_STORAGE_BUFFER, net.line_buffer.?);
+        gl.bufferData(
+            gl.SHADER_STORAGE_BUFFER,
+            @intCast(@sizeOf(Link) * net.links.items.len),
+            &net.links.items[0],
+            gl.STATIC_DRAW,
+        );
+        gl.bindBuffer(gl.SHADER_STORAGE_BUFFER, 0);
+        try gfx.mesh.uploadIndices(net.link_indices.items);
+    }
+
+    pub fn draw(net: *Net, gfx: *GFX) void {
+        gl.bindBufferBase(gl.SHADER_STORAGE_BUFFER, 0, net.line_buffer.?); // 0 is the index chosen in GFX.init
+        gfx.draw();
+    }
 };
 
 pub fn main() !void {
@@ -193,11 +224,11 @@ pub fn main() !void {
 
     var net = try Net.init(alloc);
     defer net.kill();
-    try gfx.mesh.uploadIndices(net.link_indices.items);
+    try net.uploadLines(&gfx);
 
     while (gfx.window.ok()) {
         net.simulate(gfx.window.delta);
-        try gfx.mesh.upload(.{net.point_positions.items});
-        if (CFG.draw) gfx.draw();
+        try net.uploadPoints(&gfx);
+        if (CFG.draw) net.draw(&gfx);
     }
 }

@@ -6,6 +6,13 @@ layout (triangle_strip, max_vertices = 4) out;
 uniform float line_width;
 uniform float aspect;
 
+out float stretch;
+
+readonly buffer link_block
+{
+    float links[];
+};
+
 void main()
 {
     const vec2 dir = (gl_in[1].gl_Position - gl_in[0].gl_Position).xy;
@@ -14,6 +21,8 @@ void main()
     norm.y *= aspect;
     norm = normalize(norm);
     norm.x /= aspect;
+    // Calculate stretch / squeeze multiplier
+    stretch = length(dir) / links[gl_PrimitiveIDIn] - 1;
 
     for (int vert = 0; vert < 4; ++vert)
     {

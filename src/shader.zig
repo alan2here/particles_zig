@@ -12,20 +12,20 @@ pub const Shader = struct {
         comptime geometry: ?[]const u8,
         comptime fragment: []const u8,
     ) !Shader {
-        return _init(
+        return initShader(
             &[_]?[]const u8{ vertex, geometry, fragment },
             &[_]gl.GLenum{ gl.VERTEX_SHADER, gl.GEOMETRY_SHADER, gl.FRAGMENT_SHADER },
         );
     }
 
-    pub fn init_comp(comptime compute: []const u8) !Shader {
-        return _init(
+    pub fn initComp(comptime compute: []const u8) !Shader {
+        return initShader(
             &[_]?[]const u8{compute},
             &[_]gl.GLenum{gl.COMPUTE_SHADER},
         );
     }
 
-    fn _init(comptime srcs: []const ?[]const u8, comptime stages: []const gl.GLenum) !Shader {
+    fn initShader(comptime srcs: []const ?[]const u8, comptime stages: []const gl.GLenum) !Shader {
         comptime std.debug.assert(srcs.len == stages.len);
         var ids: [srcs.len]?gl.GLuint = undefined;
         var zero = false;
@@ -52,7 +52,7 @@ pub const Shader = struct {
             var path: ?[]const u8 = null;
             inline for (srcs, stages) |src, stage| {
                 if (src == null) continue;
-                const tmp = make_path(src, stage);
+                const tmp = makePath(src, stage);
                 if (tmp != null) path = tmp;
             }
             if (compileError(id, true, path)) {
@@ -166,7 +166,7 @@ pub const Shader = struct {
         }
     }
 
-    pub fn bind_block(shader: Shader, name: [:0]const u8, binding: gl.GLuint) void {
+    pub fn bindBlock(shader: Shader, name: [:0]const u8, binding: gl.GLuint) void {
         if (shader.id) |id| {
             const index = gl.getProgramResourceIndex(id, gl.SHADER_STORAGE_BLOCK, name);
             gl.shaderStorageBlockBinding(id, index, binding);
@@ -181,7 +181,7 @@ fn compile(comptime name: ?[]const u8, comptime stage: gl.GLenum) ?gl.GLuint {
         name.?,
         &std.ascii.whitespace,
     ).len > 0);
-    const path = comptime make_path(name, stage) orelse {
+    const path = comptime makePath(name, stage) orelse {
         std.log.err("Invalid shader stage {}", .{stage});
         return 0;
     };
@@ -216,7 +216,7 @@ fn compileError(id: gl.GLuint, comptime is_program: bool, path: ?[]const u8) boo
     return ok == gl.FALSE;
 }
 
-fn make_path(comptime name: ?[]const u8, comptime stage: gl.GLenum) ?[]const u8 {
+fn makePath(comptime name: ?[]const u8, comptime stage: gl.GLenum) ?[]const u8 {
     return "glsl/" ++ name.? ++ switch (stage) {
         gl.VERTEX_SHADER => ".vert",
         gl.GEOMETRY_SHADER => ".geom",

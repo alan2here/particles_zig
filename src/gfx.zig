@@ -16,8 +16,8 @@ pub const GFX = struct {
     vsync: bool,
 
     pub fn init(alloc: std.mem.Allocator) !GFX {
-        const LINE_WIDTH = 0.015;
-        const CIRCLE_SIZE = 0.02;
+        const LINE_WIDTH = 0.01;
+        const CIRCLE_SIZE = 0.01;
         const LINE_COLOUR = &[4]f32{ 0, 0, 1, 1 };
         const CIRCLE_COLOUR = &[4]f32{ 1, 1, 1, 1 };
         var gfx = GFX{
