@@ -3,7 +3,8 @@ const gl = @import("gl");
 const vec = @import("vec.zig");
 const GFX = @import("gfx.zig").GFX;
 
-// TODO If timescale / iterations >= FPS / 120 then this goes crazy
+// TODO MCTS code from the python project
+
 const CFG = .{
     .air_resistance = 2,
     .draw = true,
