@@ -1,10 +1,10 @@
 const Net = @import("net.zig").Net;
 
 pub const GameState = struct {
-    net: Net.Net,
+    net: Net,
 
-    pub fn init(net: Net.Net) GameState {
-        return GameState{
+    pub fn init(net: Net) GameState {
+        return .{
             .net = net,
         };
     }
@@ -21,11 +21,11 @@ pub const GameState = struct {
         _ = self;
     }
 
-    fn timeStep_points(self: GameState) void {
+    fn timeStepPoints(self: GameState) void {
         _ = self;
     }
 
-    fn timeStep_links(self: GameState) void {
+    fn timeStepLinks(self: GameState) void {
         _ = self;
     }
 

@@ -202,16 +202,12 @@ pub const Net = struct {
     }
 
     pub fn clone(net: *Net, alloc: std.mem.Allocator) !Net {
-        return Net{
+        return .{
             .links = try net.links.clone(alloc),
             .link_indices = try net.link_indices.clone(alloc),
             .points = try net.points.clone(alloc),
             .point_positions = try net.point_positions.clone(alloc),
-            .line_buffer = if (net.line_buffer) blk: {
-                var new_lb: gl.GLuint = undefined;
-                gl.genBuffers(1, &new_lb);
-                break :blk new_lb;
-            } else null,
+            .line_buffer = net.line_buffer, // No need to deep copy GPU data
         };
     }
 };
