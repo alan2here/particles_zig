@@ -200,4 +200,18 @@ pub const Net = struct {
         gl.bindBufferBase(gl.SHADER_STORAGE_BUFFER, 0, net.line_buffer.?); // 0 is the index chosen in GFX.init
         gfx.draw();
     }
+
+    pub fn clone(net: *Net, alloc: std.mem.Allocator) !Net {
+        return Net{
+            .links = try net.links.clone(alloc),
+            .link_indices = try net.link_indices.clone(alloc),
+            .points = try net.points.clone(alloc),
+            .point_positions = try net.point_positions.clone(alloc),
+            .line_buffer = if (net.line_buffer) blk: {
+                var new_lb: gl.GLuint = undefined;
+                gl.genBuffers(1, &new_lb);
+                break :blk new_lb;
+            } else null,
+        };
+    }
 };
