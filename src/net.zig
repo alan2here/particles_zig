@@ -27,8 +27,7 @@ pub const Link = struct {
 };
 
 pub const Net = struct {
-    // The net contains points and links between them
-    // In this example they are arranged in a grid
+    // the net contains points and links between them
     const WIDTH = 20;
     const HEIGHT = 20;
     const GAP = 1.0 / 13.0;
@@ -62,41 +61,6 @@ pub const Net = struct {
         gl.genBuffers(1, &line_buffer);
         net.line_buffer = line_buffer;
         errdefer gl.deleteBuffers(1, &line_buffer);
-
-        // Create links and points
-        for (0..Net.HEIGHT) |row| {
-            for (0..Net.WIDTH) |col| {
-                // Create links
-                if (col + 1 < Net.WIDTH) try net.addLink(
-                    row * Net.WIDTH + col,
-                    row * Net.WIDTH + col + 1,
-                    GAP,
-                );
-                if (row + 1 < Net.HEIGHT) try net.addLink(
-                    col + Net.WIDTH * row,
-                    col + Net.WIDTH * (row + 1),
-                    GAP,
-                );
-                // Create points
-                var pos = vec.Vec2{
-                    @floatFromInt(col),
-                    @floatFromInt(row),
-                };
-                pos -= vec.Vec2{
-                    @floatFromInt(Net.WIDTH - 1),
-                    @floatFromInt(Net.HEIGHT - 1),
-                } / vec.splat2(2);
-                pos = pos * vec.splat2(Net.GAP) + Net.OFFSET;
-                try net.addPoint(
-                    pos,
-                    vec.splat2(@as(f32, @floatFromInt(row + col))) * vec.Vec2{ 0.1, -0.1 },
-                    row + 1 == Net.HEIGHT,
-                );
-                // try net.addPoint(pos, null, row + 1 == Net.HEIGHT and (col == 0 or col + 1 == Net.WIDTH));
-                // try net.addPoint(pos, null, (row == 0 or row + 1 == Net.HEIGHT) and (col == 0 or col + 1 == Net.WIDTH));
-            }
-        }
-
         return net;
     }
 
@@ -209,5 +173,73 @@ pub const Net = struct {
             .point_positions = try net.point_positions.clone(alloc),
             .line_buffer = net.line_buffer, // No need to deep copy GPU data
         };
+    }
+};
+
+pub const Grid = struct {
+    const WIDTH = 20;
+    const HEIGHT = 20;
+    const GAP = 1.0 / 13.0;
+    const OFFSET = vec.Vec2{ 0, GAP * 2.3 };
+
+    // TODO should contain an instance of Net that it configures to be a grid
+    pub fn init(alloc: std.mem.Allocator) !Net {
+        var net = Net{
+            .links = undefined,
+            .link_indices = undefined,
+            .points = undefined,
+            .point_positions = undefined,
+            .line_buffer = null,
+        };
+
+        net.links = @TypeOf(net.links).init(alloc);
+        errdefer net.links.deinit();
+        net.link_indices = @TypeOf(net.link_indices).init(alloc);
+        errdefer net.link_indices.deinit();
+        net.points = @TypeOf(net.points).init(alloc);
+        errdefer net.points.deinit();
+        net.point_positions = @TypeOf(net.point_positions).init(alloc);
+        errdefer net.point_positions.deinit();
+
+        var line_buffer: gl.GLuint = undefined;
+        gl.genBuffers(1, &line_buffer);
+        net.line_buffer = line_buffer;
+        errdefer gl.deleteBuffers(1, &line_buffer);
+
+        // Create links and points
+        for (0..Net.HEIGHT) |row| {
+            for (0..Net.WIDTH) |col| {
+                // Create links
+                if (col + 1 < Net.WIDTH) try net.addLink(
+                    row * Net.WIDTH + col,
+                    row * Net.WIDTH + col + 1,
+                    GAP,
+                );
+                if (row + 1 < Net.HEIGHT) try net.addLink(
+                    col + Net.WIDTH * row,
+                    col + Net.WIDTH * (row + 1),
+                    GAP,
+                );
+                // Create points
+                var pos = vec.Vec2{
+                    @floatFromInt(col),
+                    @floatFromInt(row),
+                };
+                pos -= vec.Vec2{
+                    @floatFromInt(Net.WIDTH - 1),
+                    @floatFromInt(Net.HEIGHT - 1),
+                } / vec.splat2(2);
+                pos = pos * vec.splat2(Net.GAP) + Net.OFFSET;
+                try net.addPoint(
+                    pos,
+                    vec.splat2(@as(f32, @floatFromInt(row + col))) * vec.Vec2{ 0.1, -0.1 },
+                    row + 1 == Net.HEIGHT,
+                );
+                // try net.addPoint(pos, null, row + 1 == Net.HEIGHT and (col == 0 or col + 1 == Net.WIDTH));
+                // try net.addPoint(pos, null, (row == 0 or row + 1 == Net.HEIGHT) and (col == 0 or col + 1 == Net.WIDTH));
+            }
+        }
+
+        return net;
     }
 };

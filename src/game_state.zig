@@ -1,4 +1,5 @@
 const Net = @import("net.zig").Net;
+const GFX = @import("gfx.zig").GFX;
 
 pub const GameState = struct {
     net: Net,
@@ -17,23 +18,15 @@ pub const GameState = struct {
         return s / @as(f32, @floatFromInt(self.net.points.len));
     }
 
-    pub fn timeStep(self: GameState) void {
-        _ = self;
-    }
-
-    fn timeStepPoints(self: GameState) void {
-        _ = self;
-    }
-
-    fn timeStepLinks(self: GameState) void {
-        _ = self;
+    pub fn timeStep(self: GameState, delta: f32) void {
+        self.net.simulate(self.net, delta);
     }
 
     pub fn copy(self: GameState) GameState {
         return GameState.init(self.net.copy());
     }
 
-    pub fn draw(self: GameState) void {
-        _ = self;
+    pub fn draw(self: GameState, gfx: *GFX) void {
+        self.net.draw(self.net, gfx);
     }
 };
