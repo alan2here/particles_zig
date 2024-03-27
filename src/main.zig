@@ -2,7 +2,7 @@ const std = @import("std");
 const gl = @import("gl");
 const vec = @import("vec.zig");
 const GFX = @import("gfx.zig").GFX;
-const Grid = @import("net.zig").Grid;
+const Net = @import("net.zig").Net;
 const CFG = @import("cfg.zig").CFG;
 const mcts = @import("MCTS.zig");
 
@@ -17,16 +17,21 @@ pub fn main() !void {
     defer gfx.kill();
     gfx.toggleVSync(CFG.vsync);
 
-    var grid = try Grid.init(alloc);
-    defer grid.kill();
-    try grid.uploadLines(&gfx);
+    var net = try Net.init(alloc);
+    defer net.kill();
+    try net.addLinkedPoints(
+        @constCast(&[_]f32{ 0.0, 0.1, -0.1, -0.1, 0.1, -0.1 }),
+        @constCast(&[_]gl.GLuint{ 0, 1, 1, 2, 2, 0 }),
+        @constCast(&[_]f32{ 0.2, 0.2, 0.2 }),
+    );
+    try net.uploadLines(&gfx);
 
-    const mcts2 = mcts.MCTS.init(grid);
+    const mcts2 = mcts.MCTS.init(net);
     std.debug.print("{}\n", .{mcts2.wins_this_frame});
 
     while (gfx.window.ok()) {
-        grid.simulate(gfx.window.delta);
-        try grid.uploadPoints(&gfx);
-        if (CFG.draw) grid.draw(&gfx);
+        net.simulate(gfx.window.delta);
+        try net.uploadPoints(&gfx);
+        if (CFG.draw) net.draw(&gfx);
     }
 }

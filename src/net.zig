@@ -75,15 +75,24 @@ pub const Net = struct {
         }
     }
 
-    fn addLink(net: *Net, index_l: usize, index_r: usize, length: ?f32) !void {
+    pub fn addLink(net: *Net, index_l: usize, index_r: usize, length: ?f32) !void {
         try net.links.append(Link.init(length));
         try net.link_indices.append(@intCast(index_l));
         try net.link_indices.append(@intCast(index_r));
     }
 
-    fn addPoint(net: *Net, pos: vec.Vec2, vel: ?vec.Vec2, pin: ?bool) !void {
+    pub fn addPoint(net: *Net, pos: vec.Vec2, vel: ?vec.Vec2, pin: ?bool) !void {
         try net.points.append(Point.init(vel orelse .{ 0, 0 }, pin));
         try net.point_positions.append(pos);
+    }
+
+    pub fn addLinkedPoints(net: *Net, points: []f32, links: []gl.GLuint, lengths: []f32) !void {
+        for (0..points.len / 2) |n| {
+            try net.addPoint(.{ points[n * 2], points[n * 2 + 1] }, null, false);
+        }
+        for (0..links.len / 2) |n| {
+            try net.addLink(links[n * 2], links[n * 2 + 1], lengths[n]);
+        }
     }
 
     fn Pair(comptime T: type) type {
@@ -153,7 +162,7 @@ pub const Net = struct {
         gl.bufferData(
             gl.SHADER_STORAGE_BUFFER,
             @intCast(@sizeOf(Link) * net.links.items.len),
-            &net.links.items[0],
+            if (net.links.items.len > 0) &net.links.items[0] else null,
             gl.STATIC_DRAW,
         );
         gl.bindBuffer(gl.SHADER_STORAGE_BUFFER, 0);
@@ -176,6 +185,7 @@ pub const Net = struct {
     }
 };
 
+// like a subclass of Net
 pub const Grid = struct {
     const WIDTH = 20;
     const HEIGHT = 20;
@@ -230,6 +240,7 @@ pub const Grid = struct {
                     @floatFromInt(Net.HEIGHT - 1),
                 } / vec.splat2(2);
                 pos = pos * vec.splat2(Net.GAP) + Net.OFFSET;
+
                 try net.addPoint(
                     pos,
                     vec.splat2(@as(f32, @floatFromInt(row + col))) * vec.Vec2{ 0.1, -0.1 },
