@@ -3,11 +3,15 @@
     .version = "0.1.0",
     .dependencies = .{
         .mach_glfw = .{
-            .url = "https://pkg.machengine.org/mach-glfw/0ea4948b8b4a470284b8b72780e680321d7ffd29.tar.gz",
-            .hash = "12204bfbc23adcbd3dafdd93dd2dafc71c08ad03073a509799deb5d2dfe45c2946fe",
+            .url = "https://pkg.machengine.org/mach-glfw/1a9a03399058fd83f7fbb597f3f8304007ff6a3c.tar.gz",
+            .hash = "1220b4d58ec6cf53abfd8d7547d39afb9bffa41822d4d58f52625230466e51cc93bb",
+        },
+        .zmath = .{
+            .path = "libs/zig-gamedev/libs/zmath",
+        },
+        .znoise = .{
+            .path = "libs/zig-gamedev/libs/znoise",
         },
     },
-    .paths = .{
-        "",
-    },
+    .paths = .{""},
 }
