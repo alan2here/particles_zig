@@ -124,6 +124,7 @@ pub const Net = struct {
         // Calculate number of iterations to simulate this frame
         var iters = @ceil(_delta * CFG.min_iters_per_second);
         iters = @max(iters, CFG.min_iters_per_frame);
+        // const iters = 4;
         // Calculate time step to simulate for each iteration
         const delta: f32 = CFG.timescale * _delta / iters;
         for (0..@intFromFloat(iters)) |_| {
@@ -138,16 +139,23 @@ pub const Net = struct {
                 if (!points.r.pin) points.r.vel += acc;
             }
             // Calculate friction from air resistance
-            const power = -delta * CFG.air_resistance;
-            const friction = vec.splat2(std.math.pow(f32, 2, power));
+            const air_power = -delta * CFG.air_resistance;
+            const air_friction = vec.splat2(std.math.pow(f32, 2, air_power));
             // Update velocities and positions
             for (net.points.items, net.point_positions.items) |*point, *pos| {
                 if (point.pin) {
                     point.vel = vec.splat2(0);
                 } else {
                     point.vel[1] -= CFG.gravity * delta;
-                    point.vel *= friction;
+                    point.vel *= air_friction;
                     pos.* += point.vel * vec.splat2(delta);
+                    if (pos[1] < -0.5) { // ground collision
+                        const ground_power = -delta * CFG.ground_resistance;
+                        const ground_friction = std.math.pow(f32, 2, ground_power);
+                        pos[1] = -0.5;
+                        point.vel[0] *= ground_friction;
+                        point.vel[1] = 0; // point.vel[1] *= -0.2;
+                    }
                 }
             }
         }
