@@ -7,7 +7,6 @@ const CFG = @import("cfg.zig").CFG;
 const mcts = @import("MCTS.zig");
 
 // TODO MCTS code from the python project
-// TODO add a ground to the phys code
 
 pub fn main() !void {
     var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
