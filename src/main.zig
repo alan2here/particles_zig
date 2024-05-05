@@ -26,8 +26,8 @@ pub fn main() !void {
     );
     try net.uploadLines(&gfx);
 
-    const mcts2 = mcts.MCTS.init(net);
-    std.debug.print("{}\n", .{mcts2.wins_this_frame});
+    // const mcts2 = mcts.MCTS.init(net);
+    // std.debug.print("{}\n", .{mcts2.wins_this_frame});
 
     while (gfx.window.ok()) {
         net.simulate(gfx.window.delta);

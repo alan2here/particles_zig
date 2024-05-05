@@ -75,6 +75,8 @@ pub const Net = struct {
         }
     }
 
+    // TODO add kill_clone that calls kill without the gpu stuff
+
     pub fn addLink(net: *Net, index_l: usize, index_r: usize, length: ?f32) !void {
         try net.links.append(Link.init(length));
         try net.link_indices.append(@intCast(index_l));
