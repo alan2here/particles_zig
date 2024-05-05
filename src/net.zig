@@ -64,18 +64,20 @@ pub const Net = struct {
         return net;
     }
 
-    pub fn kill(net: *Net) void {
+    pub fn kill_copy(net: *Net) void {
         net.links.deinit();
         net.link_indices.deinit();
         net.points.deinit();
         net.point_positions.deinit();
+    }
+
+    pub fn kill(net: *Net) void {
+        net.kill_copy();
         if (net.line_buffer) |line_buffer| {
             gl.deleteBuffers(1, &line_buffer);
             net.line_buffer = null;
         }
     }
-
-    // TODO add kill_clone that calls kill without the gpu stuff
 
     pub fn addLink(net: *Net, index_l: usize, index_r: usize, length: ?f32) !void {
         try net.links.append(Link.init(length));
