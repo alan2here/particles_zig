@@ -9,6 +9,8 @@ const mcts = @import("MCTS.zig");
 // TODO MCTS code from the python project
 
 pub fn main() !void {
+    mcts.blam(); // ZIG not-compile defeating do-nothing function
+
     var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
     defer arena.deinit();
     const alloc = arena.allocator();
