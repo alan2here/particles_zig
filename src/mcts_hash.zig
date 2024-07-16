@@ -21,7 +21,8 @@ const global_map: [HASH_MAP_BUCKETS]MapNodeData = .{};
 
 // Coefficient for games and wins that we use each iteration to
 // reduce impact of collisions with a now-unreachable past
-const forgetfulness = 0.5;
+const forgetfulness_games = 0.5;
+const forgetfulness_wins = 0.4;
 
 // Copied from std
 pub fn hashSingle(input: u32) u32 {
@@ -52,7 +53,8 @@ pub fn hashCombine(l: u32, r: u32) u32 {
 fn mcts(root: GameState, hash_of_past: u32) void {
     // @memset(global_map, .{}); // Set all to 0
     for (global_map) |*bucket| {
-        bucket.* *= forgetfulness;
+        bucket.games *= forgetfulness_games;
+        bucket.wins *= forgetfulness_wins;
     }
 
     for (0..JOBS) |job_id| {
